@@ -1,4 +1,4 @@
---// Endware Hub - Persistent, Wall-Check Aimbot, ESP, Hitbox Expander, Always Daytime, Friendly List, Scooter TP, Bank TP, Seed Buyer, Rage/Legit, Chams
+--// Endware Hub - Persistent, Wall-Check Aimbot, ESP, Hitbox Expander, Always Daytime, Friendly List, Scooter TP, Bank TP, Seed Buyer, Rage/Legit, Chams, Inf Stamina
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -16,6 +16,7 @@ local namesEnabled = false
 local daytimeEnabled = false
 local hitboxEnabled = false
 local chamsEnabled = false
+local infStaminaEnabled = false
 local fovValue = 200
 local hitboxMultiplier = 1.5
 local friendlyPlayers = {}
@@ -167,17 +168,14 @@ local function applyRageStats(tool)
 	local stats = tool:FindFirstChild("Stats")
 	if not stats then return end
 
-	-- FireRate
 	local fr = stats:FindFirstChild("FireRate")
 	if fr and fr:IsA("NumberValue") then fr.Value = 0.001 end
 
-	-- Recoil
 	local rc = stats:FindFirstChild("Recoil")
 	if rc then
 		if rc:IsA("NumberValue") then rc.Value = 0 end
 	end
 
-	-- MaxSpread
 	local ms = stats:FindFirstChild("MaxSpread")
 	if ms then
 		if ms:IsA("NumberValue") then ms.Value = 0
@@ -185,33 +183,35 @@ local function applyRageStats(tool)
 		end
 	end
 
-	-- ClipSize
 	local cs = stats:FindFirstChild("ClipSize")
 	if cs and cs:IsA("NumberValue") then cs.Value = 999 end
 
-	-- MaxAmmo
 	local ma = stats:FindFirstChild("MaxAmmo")
 	if ma and ma:IsA("NumberValue") then ma.Value = 999 end
 
-	-- ReloadTime
 	local rt = stats:FindFirstChild("ReloadTime")
 	if rt and rt:IsA("NumberValue") then rt.Value = 0.01 end
 
-	-- GunType -> Auto
 	local gt = stats:FindFirstChild("GunType")
 	if gt and gt:IsA("StringValue") then gt.Value = "Auto" end
 end
 
--- Legit modunda bir silaha uygulanacak ayar (sadece FireRate)
+-- Legit modunda bir silaha uygulanacak ayarlar (sadece FireRate + sınırsız mermi)
 local function applyLegitStats(tool)
 	if not tool:IsA("Tool") and not tool:IsA("HopperBin") then return end
 	local stats = tool:FindFirstChild("Stats")
 	if not stats then return end
+
 	local fr = stats:FindFirstChild("FireRate")
 	if fr and fr:IsA("NumberValue") then fr.Value = 0.04 end
+
+	local cs = stats:FindFirstChild("ClipSize")
+	if cs and cs:IsA("NumberValue") then cs.Value = 999 end
+
+	local ma = stats:FindFirstChild("MaxAmmo")
+	if ma and ma:IsA("NumberValue") then ma.Value = 999 end
 end
 
--- Tüm araçları tara ve moda göre ayarla
 local function applyAllWeaponStats(mode)
 	if not mode then return end
 	-- Backpack
@@ -235,7 +235,6 @@ local function applyAllWeaponStats(mode)
 	end
 end
 
--- NoFallDamage
 local function applyNoFallDamage()
 	local char = player.Character
 	if not char then return end
@@ -246,7 +245,6 @@ local function applyNoFallDamage()
 	end
 end
 
--- NoStun
 local function applyNoStun()
 	local char = player.Character
 	if not char then return end
@@ -258,7 +256,6 @@ local function applyNoStun()
 	end
 end
 
--- NoRecoil (animasyonları durdurur)
 local function applyNoRecoil()
 	local char = player.Character
 	if not char then return end
@@ -275,14 +272,13 @@ local function applyNoRecoil()
 	end
 end
 
--- Wallbang (FindPartOnRay'i bozar)
 local function enableWallbang()
-	if originalFindPartOnRay then return end -- zaten açık
+	if originalFindPartOnRay then return end
 	originalFindPartOnRay = Workspace.FindPartOnRayWithIgnoreList
 	Workspace.FindPartOnRayWithIgnoreList = function(...)
 		local args = {...}
 		if #args >= 3 and type(args[3]) == "table" then
-			args[3] = {} -- ignore listesini boşalt
+			args[3] = {}
 		end
 		return originalFindPartOnRay(unpack(args))
 	end
@@ -295,15 +291,12 @@ local function disableWallbang()
 	end
 end
 
--- Rage açılırken yapılacaklar (bir kere)
 local function onRageEnabled()
 	enableWallbang()
 end
 
--- Rage kapanırken yapılacaklar
 local function onRageDisabled()
 	disableWallbang()
-	-- humanoid durumlarını sıfırlamak için karakter varsa tekrar enable edelim
 	local char = player.Character
 	if char then
 		local humanoid = char:FindFirstChild("Humanoid")
@@ -316,7 +309,6 @@ local function onRageDisabled()
 	end
 end
 
--- Ana Heartbeat'te çağrılan, aktif moda göre işlemler
 local function processWeaponMode()
 	if weaponStatsMode == "Rage" then
 		applyAllWeaponStats("Rage")
@@ -326,17 +318,17 @@ local function processWeaponMode()
 		enableWallbang()
 	elseif weaponStatsMode == "Legit" then
 		applyAllWeaponStats("Legit")
-	else
-		-- Mod kapalı, hiçbir şey yapma (temizlik clearConnections'da yapılır)
 	end
 end
 
 -- ============================================
-
--- Chams fonksiyonları
+-- CHAMS (Wallhack) - Yeniden doğma/katılma düzeltildi
+-- ============================================
 local function addHighlightToCharacter(plr, char)
 	if plr == player then return end
-	if chamsHighlights[plr] then return end
+	if chamsHighlights[plr] then
+		chamsHighlights[plr]:Destroy()
+	end
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "ChamsHighlight"
 	highlight.FillColor = Color3.fromRGB(255, 0, 0)
@@ -348,7 +340,7 @@ local function addHighlightToCharacter(plr, char)
 	chamsHighlights[plr] = highlight
 end
 
-local function removeHighlightFromCharacter(plr)
+local function removeHighlightFromPlayer(plr)
 	if chamsHighlights[plr] then
 		chamsHighlights[plr]:Destroy()
 		chamsHighlights[plr] = nil
@@ -358,22 +350,37 @@ end
 local function applyChamsState(state)
 	chamsEnabled = state
 	if state then
+		-- Mevcut oyunculara ekle
 		for _, plr in ipairs(Players:GetPlayers()) do
 			if plr ~= player and plr.Character then
 				addHighlightToCharacter(plr, plr.Character)
 			end
 		end
+		-- Karakter değişikliği bağlantıları
 		for _, plr in ipairs(Players:GetPlayers()) do
 			if plr ~= player then
-				if not chamsCharacterConnections[plr] then
-					chamsCharacterConnections[plr] = plr.CharacterAdded:Connect(function(char)
-						if chamsEnabled then
-							addHighlightToCharacter(plr, char)
-						end
-					end)
+				if chamsCharacterConnections[plr] then
+					chamsCharacterConnections[plr]:Disconnect()
+				end
+				chamsCharacterConnections[plr] = plr.CharacterAdded:Connect(function(char)
+					if chamsEnabled then
+						addHighlightToCharacter(plr, char)
+					end
+				end)
+				-- Karakter silindiğinde temizle ki yeni karakter için tekrar eklensin
+				if plr.Character then
+					-- Önceden yoksa CharacterRemoving bağla
+					if not chamsCharacterConnections[plr.."_removing"] then
+						chamsCharacterConnections[plr.."_removing"] = plr.CharacterRemoving:Connect(function()
+							if chamsHighlights[plr] then
+								chamsHighlights[plr] = nil -- highlight karakterle beraber yok olacak, referansı temizle
+							end
+						end)
+					end
 				end
 			end
 		end
+		-- Yeni oyuncu katıldığında
 		chamsCharacterConnections["__playerAdded"] = Players.PlayerAdded:Connect(function(plr)
 			if plr ~= player then
 				chamsCharacterConnections[plr] = plr.CharacterAdded:Connect(function(char)
@@ -384,20 +391,53 @@ local function applyChamsState(state)
 				if plr.Character then
 					addHighlightToCharacter(plr, plr.Character)
 				end
+				-- CharacterRemoving bağla
+				chamsCharacterConnections[plr.."_removing"] = plr.CharacterRemoving:Connect(function()
+					chamsHighlights[plr] = nil
+				end)
+			end
+		end)
+		-- Oyuncu ayrıldığında temizlik
+		chamsCharacterConnections["__playerRemoving"] = Players.PlayerRemoving:Connect(function(plr)
+			removeHighlightFromPlayer(plr)
+			if chamsCharacterConnections[plr] then
+				chamsCharacterConnections[plr]:Disconnect()
+				chamsCharacterConnections[plr] = nil
+			end
+			if chamsCharacterConnections[plr.."_removing"] then
+				chamsCharacterConnections[plr.."_removing"]:Disconnect()
+				chamsCharacterConnections[plr.."_removing"] = nil
 			end
 		end)
 	else
+		-- Tüm highlight'ları temizle ve bağlantıları kapat
 		for plr, _ in pairs(chamsHighlights) do
-			removeHighlightFromCharacter(plr)
+			removeHighlightFromPlayer(plr)
 		end
-		for plr, conn in pairs(chamsCharacterConnections) do
+		for k, conn in pairs(chamsCharacterConnections) do
 			conn:Disconnect()
-			chamsCharacterConnections[plr] = nil
+			chamsCharacterConnections[k] = nil
 		end
 	end
 end
 
--- Tam temizlik
+-- ============================================
+-- INFINITE STAMINA
+-- ============================================
+local function applyInfStamina()
+	if not infStaminaEnabled then return end
+	local valStats = player:FindFirstChild("Valuestats")
+	if valStats then
+		local stamina = valStats:FindFirstChild("Stamina")
+		if stamina and stamina:IsA("NumberValue") then
+			stamina.Value = 100
+		end
+	end
+end
+
+-- ============================================
+-- TAM TEMİZLİK
+-- ============================================
 local function clearConnections()
 	for _, conn in ipairs(allConnections) do conn:Disconnect() end
 	allConnections = {}
@@ -442,10 +482,12 @@ local function clearConnections()
 	end
 	weaponStatsMode = nil
 
+	-- Stamina kapatıldığında özel bir işlem yok
+
 	friendlyPlayers = {}
 end
 
--- Menü oluşturma
+-- Menüyü oluştur
 local function createGUI()
 	local oldGui = player.PlayerGui:FindFirstChild("Endware")
 	if oldGui then oldGui:Destroy() end
@@ -455,6 +497,7 @@ local function createGUI()
 	screenGui.ResetOnSpawn = false
 	screenGui.Parent = player:WaitForChild("PlayerGui")
 
+	-- Ana Frame
 	local mainFrame = Instance.new("Frame")
 	mainFrame.Name = "MainFrame"
 	mainFrame.Size = UDim2.new(0,0,0,0)
@@ -473,6 +516,7 @@ local function createGUI()
 	local corner = Instance.new("UICorner", mainFrame)
 	corner.CornerRadius = UDim.new(0,12)
 
+	-- Başlık
 	local titleBar = Instance.new("Frame", mainFrame)
 	titleBar.Size = UDim2.new(1,0,0,50)
 	titleBar.BackgroundColor3 = Color3.fromRGB(20,20,20)
@@ -497,6 +541,7 @@ local function createGUI()
 	titleLabel.TextSize = 24
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+	-- Scroll alanı (Inf Stamina için yükseklik artırıldı)
 	local scrollFrame = Instance.new("ScrollingFrame", mainFrame)
 	scrollFrame.Size = UDim2.new(1,-10,1,-100)
 	scrollFrame.Position = UDim2.new(0,5,0,55)
@@ -504,13 +549,14 @@ local function createGUI()
 	scrollFrame.BorderSizePixel = 0
 	scrollFrame.ScrollBarThickness = 4
 	scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(0,170,255)
-	scrollFrame.CanvasSize = UDim2.new(0,0,0,950)
+	scrollFrame.CanvasSize = UDim2.new(0,0,0,1000)
 
 	local uiListLayout = Instance.new("UIListLayout", scrollFrame)
 	uiListLayout.Padding = UDim.new(0,8)
 	uiListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
+	-- Unload butonu
 	local unloadButton = Instance.new("TextButton", mainFrame)
 	unloadButton.Size = UDim2.new(1,-20,0,35)
 	unloadButton.Position = UDim2.new(0,10,1,-45)
@@ -522,6 +568,7 @@ local function createGUI()
 	unloadButton.TextSize = 16
 	Instance.new("UICorner", unloadButton).CornerRadius = UDim.new(0,8)
 
+	-- Checkbox oluşturma
 	local function createCheckbox(parent, text, layoutOrder)
 		local frame = Instance.new("Frame", parent)
 		frame.Size = UDim2.new(1,-10,0,35)
@@ -551,6 +598,7 @@ local function createGUI()
 		return checkButton
 	end
 
+	-- Slider oluşturma
 	local function createSlider(parent, text, min, max, default, layoutOrder)
 		local frame = Instance.new("Frame", parent)
 		frame.Size = UDim2.new(1,-10,0,60)
@@ -958,13 +1006,11 @@ local function createGUI()
 
 	local function setWeaponMode(mode)
 		if weaponStatsMode == mode then
-			-- aynı moda tıklanırsa kapat
 			if weaponStatsMode == "Rage" then onRageDisabled() end
 			weaponStatsMode = nil
 			rageBtn.Text = ""
 			legitBtn.Text = ""
 		else
-			-- önce eski modu kapat
 			if weaponStatsMode == "Rage" then onRageDisabled() end
 			weaponStatsMode = mode
 			if mode == "Rage" then
@@ -986,6 +1032,9 @@ local function createGUI()
 
 	-- Chams Checkbox
 	local chamsCheckButton = createCheckbox(scrollFrame, "Chams (Wallhack)", 14)
+
+	-- Inf Stamina Checkbox
+	local staminaCheckButton = createCheckbox(scrollFrame, "Inf Stamina", 15)
 
 	-- FOV dairesi
 	local fovCircleFrame = Instance.new("Frame", screenGui)
@@ -1269,6 +1318,12 @@ local function createGUI()
 	chamsCheckButton.MouseButton1Click:Connect(function() applyChamsState(not chamsEnabled) end)
 	table.insert(allConnections, chamsCheckButton.MouseButton1Click)
 
+	staminaCheckButton.MouseButton1Click:Connect(function()
+		infStaminaEnabled = not infStaminaEnabled
+		staminaCheckButton.Text = infStaminaEnabled and "✓" or ""
+	end)
+	table.insert(allConnections, staminaCheckButton.MouseButton1Click)
+
 	-- Ana güncelleme döngüsü
 	local mainUpdateConnection = RunService.Heartbeat:Connect(function()
 		-- Slider güncelleme
@@ -1286,6 +1341,9 @@ local function createGUI()
 
 		-- Silah modu (Rage / Legit)
 		processWeaponMode()
+
+		-- Sonsuz Stamina
+		applyInfStamina()
 	end)
 	table.insert(allConnections, mainUpdateConnection)
 
